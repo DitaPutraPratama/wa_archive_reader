@@ -28,7 +28,7 @@ Sebelum menggunakan aplikasi ini, lakukan export dari WhatsApp terlebih dahulu.
 
 ## Cara Menggunakan
 
-1. Buka file `wa_archive_reader.html` menggunakan browser Chrome atau Edge
+1. Buka file `index.html` menggunakan browser Chrome atau Edge
 2. Klik area pilih file atau seret file ZIP ke dalamnya
 3. Tunggu proses pembacaan selesai, ditandai dengan progress bar
 4. Percakapan akan langsung tampil
@@ -93,7 +93,7 @@ chat-viewer.html    -- Satu-satunya file yang diperlukan
 README.md           -- Dokumen ini
 ```
 
-Untuk menggunakan aplikasi, cukup simpan `chat-viewer.html` di sembarang lokasi dan buka dengan browser. Tidak ada dependensi eksternal yang perlu diinstal secara lokal karena library JSZip dimuat langsung dari CDN saat pertama kali digunakan.
+Untuk menggunakan aplikasi, cukup simpan `index.html` di sembarang lokasi dan buka dengan browser. Tidak ada dependensi eksternal yang perlu diinstal secara lokal karena library JSZip dimuat langsung dari CDN saat pertama kali digunakan.
 
 ---
 
