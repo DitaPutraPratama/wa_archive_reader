@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Chat Viewer</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+        <style>
+            *,
+            *::before,
+            *::after {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+
+            :root,
+            [data-theme='light'] {
+                --bg: #f5f5f0;
+                --surface: #ffffff;
+                --bubble-r: #dcf8c6;
+                --bubble-l: #ffffff;
+                --text: #111111;
+                --muted: #999999;
+                --border: #e8e8e3;
+                --sep-bg: #e2e2dc;
+                --header-bg: #ffffff;
+                --input-bg: #f0f0eb;
+                --highlight: #ffe58a;
+                --highlight-active: #f5a623;
+                --icon: #555555;
+                --gio-c: #25a244;
+                --linda-c: #2196f3;
+                --sys-color: #bbbbbb;
+                --scroll-thumb: #cccccc;
+                --drop-border: #ccc;
+                --drop-bg-hover: #eeeee8;
+                --sticky-date-bg: rgba(245, 245, 240, 0.92);
+            }
+
+            [data-theme='dark'] {
+                --bg: #0d1117;
+                --surface: #161b22;
+                --bubble-r: #1a4731;
+                --bubble-l: #1c2a3a;
+                --text: #e6edf3;
+                --muted: #8b949e;
+                --border: #21262d;
+                --sep-bg: #21262d;
+                --header-bg: #161b22;
+                --input-bg: #21262d;
+                --highlight: #7d5a00;
+                --highlight-active: #c47d00;
+                --icon: #8b949e;
+                --gio-c: #3fb950;
+                --linda-c: #58a6ff;
+                --sys-color: #4a5568;
+                --scroll-thumb: #30363d;
+                --drop-border: #30363d;
+                --drop-bg-hover: #1c2330;
+                --sticky-date-bg: rgba(13, 17, 23, 0.92);
+            }
+
+            body {
+                background: var(--bg);
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                    sans-serif;
+                font-size: 14px;
+                color: var(--text);
+                min-height: 100vh;
+                transition: background 0.2s, color 0.2s;
+            }
+
+            /* ── UPLOAD SCREEN ── */
+            #upload-screen {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+                gap: 16px;
+                padding: 24px;
+            }
+            #upload-screen h1 {
+                font-size: 18px;
+                font-weight: 600;
+                color: var(--text);
+            }
+            #upload-screen p {
+                font-size: 13px;
+                color: var(--muted);
+                text-align: center;
+                max-width: 320px;
+                line-height: 1.6;
+            }
+            #upload-screen code {
+                background: var(--input-bg);
+                padding: 1px 5px;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+
+            .drop-zone {
+                border: 2px dashed var(--drop-border);
+                border-radius: 16px;
+                padding: 36px 52px;
+                text-align: center;
+                cursor: pointer;
+                background: var(--surface);
+                transition: border-color 0.2s, background 0.2s;
+            }
+            .drop-zone:hover,
+            .drop-zone.drag-over {
+                border-color: var(--gio-c);
+                background: var(--drop-bg-hover);
+            }
+            .drop-zone input {
+                display: none;
+            }
+            .drop-zone .dz-icon {
+                font-size: 36px;
+                margin-bottom: 10px;
+            }
+            .drop-zone .dz-label {
+                font-size: 14px;
+                font-weight: 600;
+                color: var(--text);
+            }
+            .drop-zone .dz-sub {
+                font-size: 12px;
+                color: var(--muted);
+                margin-top: 5px;
+            }
+            .drop-zone .dz-alt {
+                font-size: 11px;
+                color: var(--muted);
+                margin-top: 12px;
+            }
+
+            #progress-wrap {
+                display: none;
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+                width: 280px;
+            }
+            #progress-label {
+                font-size: 13px;
+                color: var(--muted);
+            }
+            #progress-bar-bg {
+                width: 100%;
+                height: 4px;
+                background: var(--border);
+                border-radius: 2px;
+                overflow: hidden;
+            }
+            #progress-bar {
+                height: 100%;
+                width: 0%;
+                background: var(--gio-c);
+                border-radius: 2px;
+                transition: width 0.15s;
+            }
+
+            /* ── HEADER ── */
+            #header {
+                display: none;
+                position: sticky;
+                top: 0;
+                background: var(--header-bg);
+                border-bottom: 1px solid var(--border);
+                z-index: 30;
+                flex-direction: column;
+                transition: background 0.2s;
+            }
+            .header-top {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 10px 14px;
+            }
+            .dot {
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                display: inline-block;
+                flex-shrink: 0;
+            }
+            .dot.g {
+                background: var(--gio-c);
+            }
+            .dot.l {
+                background: var(--linda-c);
+            }
+            #hnames {
+                font-size: 14px;
+                font-weight: 600;
+                color: var(--text);
+            }
+            #hcount {
+                font-size: 11px;
+                color: var(--muted);
+            }
+            .hright {
+                margin-left: auto;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+            .icon-btn {
+                width: 30px;
+                height: 30px;
+                border: none;
+                background: transparent;
+                cursor: pointer;
+                border-radius: 6px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 16px;
+                color: var(--icon);
+                transition: background 0.15s;
+            }
+            .icon-btn:hover {
+                background: var(--input-bg);
+            }
+
+            /* ── STICKY DATE PILL (below header) ── */
+            #sticky-date {
+                display: none;
+                position: sticky;
+                top: 0; /* will be set by JS to header height */
+                z-index: 25;
+                text-align: center;
+                pointer-events: none;
+                padding: 6px 0 2px;
+            }
+            #sticky-date span {
+                display: inline-block;
+                background: var(--sticky-date-bg);
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+                border: 1px solid var(--border);
+                border-radius: 20px;
+                padding: 3px 14px;
+                font-size: 11px;
+                color: var(--muted);
+                font-weight: 500;
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+                transition: opacity 0.2s;
+            }
+
+            /* ── SEARCH BAR ── */
+            #search-bar {
+                display: none;
+                padding: 8px 14px;
+                border-top: 1px solid var(--border);
+                align-items: center;
+                gap: 8px;
+            }
+            #search-input {
+                flex: 1;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                background: var(--input-bg);
+                color: var(--text);
+                font-size: 13px;
+                padding: 6px 10px;
+                outline: none;
+            }
+            #search-input:focus {
+                border-color: var(--gio-c);
+            }
+            #search-input::placeholder {
+                color: var(--muted);
+            }
+            .srch-nav {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                flex-shrink: 0;
+            }
+            .srch-btn {
+                width: 28px;
+                height: 28px;
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                background: var(--input-bg);
+                color: var(--text);
+                font-size: 13px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .srch-btn:hover {
+                background: var(--sep-bg);
+            }
+            .srch-btn:disabled {
+                opacity: 0.35;
+                cursor: default;
+            }
+            #srch-count {
+                font-size: 11px;
+                color: var(--muted);
+                min-width: 52px;
+                text-align: center;
+            }
+
+            /* ── DATE BAR ── */
+            #date-bar {
+                display: none;
+                padding: 8px 14px;
+                border-top: 1px solid var(--border);
+                align-items: center;
+                gap: 8px;
+            }
+            #date-bar label {
+                font-size: 12px;
+                color: var(--muted);
+                white-space: nowrap;
+            }
+            #date-select {
+                flex: 1;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                background: var(--input-bg);
+                color: var(--text);
+                font-size: 12px;
+                padding: 5px 8px;
+                outline: none;
+                cursor: pointer;
+            }
+            #date-select:focus {
+                border-color: var(--gio-c);
+            }
+            .date-go-btn {
+                padding: 5px 12px;
+                border: none;
+                border-radius: 8px;
+                background: var(--gio-c);
+                color: #fff;
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+            }
+            .date-go-btn:hover {
+                opacity: 0.88;
+            }
+
+            /* ── CHAT ── */
+            #chat {
+                display: none;
+                max-width: 680px;
+                margin: 0 auto;
+                padding: 8px 12px 80px;
+            }
+
+            /* ── DATE SEP ── */
+            .date-sep {
+                text-align: center;
+                margin: 20px 0 10px;
+            }
+            .date-sep span {
+                background: var(--sep-bg);
+                border-radius: 8px;
+                padding: 3px 12px;
+                font-size: 11px;
+                color: var(--muted);
+            }
+
+            /* ── SYSTEM ── */
+            .system {
+                text-align: center;
+                font-size: 11px;
+                color: var(--sys-color);
+                margin: 4px auto 8px;
+                max-width: 82%;
+                line-height: 1.5;
+                font-style: italic;
+            }
+
+            /* ── ROW ── */
+            .row {
+                display: flex;
+                margin-bottom: 2px;
+            }
+            .row.right {
+                justify-content: flex-end;
+            }
+            .row.left {
+                justify-content: flex-start;
+            }
+
+            /* ── BUBBLE ── */
+            .bubble {
+                max-width: 66%;
+                padding: 7px 10px 5px;
+                border-radius: 12px;
+                line-height: 1.5;
+                word-break: break-word;
+                box-shadow: 0 1px 1px rgba(0, 0, 0, 0.06);
+                transition: background 0.2s;
+            }
+            .row.right .bubble {
+                background: var(--bubble-r);
+                border-bottom-right-radius: 3px;
+            }
+            .row.left .bubble {
+                background: var(--bubble-l);
+                border-bottom-left-radius: 3px;
+            }
+            .bubble .ts {
+                font-size: 10px;
+                color: var(--muted);
+                float: right;
+                margin-left: 8px;
+                margin-top: 3px;
+                line-height: 1;
+            }
+
+            /* highlight */
+            mark {
+                background: var(--highlight);
+                color: var(--text);
+                border-radius: 2px;
+                padding: 0 1px;
+            }
+            mark.active {
+                background: var(--highlight-active);
+                color: #fff;
+            }
+
+            /* ── MEDIA ── */
+            .media-wrap {
+                border-radius: 8px;
+                overflow: hidden;
+                margin-bottom: 4px;
+            }
+            .media-wrap img {
+                display: block;
+                width: 100%;
+                max-height: 240px;
+                object-fit: cover;
+                cursor: pointer;
+                border-radius: 8px;
+                transition: opacity 0.15s;
+            }
+            .media-wrap img:hover {
+                opacity: 0.9;
+            }
+            .media-wrap video {
+                display: block;
+                width: 100%;
+                max-height: 240px;
+                border-radius: 8px;
+                background: #000;
+            }
+
+            /* ── VOICE ── */
+            .voice {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 3px 0 4px;
+                min-width: 180px;
+            }
+            .voice audio {
+                display: none;
+            }
+            .play-btn {
+                width: 30px;
+                height: 30px;
+                border-radius: 50%;
+                border: none;
+                background: rgba(0, 0, 0, 0.1);
+                cursor: pointer;
+                font-size: 11px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+            }
+            [data-theme='dark'] .play-btn {
+                background: rgba(255, 255, 255, 0.12);
+            }
+            .play-btn:hover {
+                background: rgba(0, 0, 0, 0.18);
+            }
+            [data-theme='dark'] .play-btn:hover {
+                background: rgba(255, 255, 255, 0.2);
+            }
+            .waveform {
+                display: flex;
+                align-items: center;
+                gap: 2px;
+                flex: 1;
+                height: 22px;
+            }
+            .waveform span {
+                display: inline-block;
+                width: 2px;
+                border-radius: 2px;
+                background: rgba(0, 0, 0, 0.18);
+            }
+            [data-theme='dark'] .waveform span {
+                background: rgba(255, 255, 255, 0.2);
+            }
+            .voice.playing .waveform span {
+                background: rgba(0, 0, 0, 0.4);
+            }
+            [data-theme='dark'] .voice.playing .waveform span {
+                background: rgba(255, 255, 255, 0.5);
+            }
+
+            .ph {
+                font-size: 11px;
+                color: var(--muted);
+                padding: 2px 0;
+            }
+
+            /* ── LIGHTBOX ── */
+            #lb {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.93);
+                z-index: 999;
+                flex-direction: column;
+            }
+            #lb.on {
+                display: flex;
+            }
+
+            /* top bar */
+            #lb-top {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 12px 16px;
+                flex-shrink: 0;
+            }
+            #lb-counter {
+                font-size: 13px;
+                color: rgba(255, 255, 255, 0.6);
+            }
+            #lb-close-btn {
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                border: none;
+                background: rgba(255, 255, 255, 0.12);
+                color: #fff;
+                font-size: 16px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            #lb-close-btn:hover {
+                background: rgba(255, 255, 255, 0.22);
+            }
+
+            /* image area */
+            #lb-body {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+                min-height: 0;
+                overflow: hidden;
+            }
+            #lb-img {
+                max-width: calc(100vw - 120px);
+                max-height: 100%;
+                border-radius: 6px;
+                object-fit: contain;
+                transition: opacity 0.18s, transform 0.18s;
+                display: block;
+            }
+            #lb-img.fade {
+                opacity: 0;
+                transform: scale(0.96);
+            }
+
+            /* nav arrows */
+            .lb-nav {
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 44px;
+                height: 44px;
+                border-radius: 50%;
+                border: none;
+                background: rgba(255, 255, 255, 0.14);
+                color: #fff;
+                font-size: 20px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background 0.15s;
+                z-index: 2;
+                flex-shrink: 0;
+            }
+            .lb-nav:hover {
+                background: rgba(255, 255, 255, 0.28);
+            }
+            .lb-nav:disabled {
+                opacity: 0.2;
+                cursor: default;
+            }
+            #lb-prev {
+                left: 10px;
+            }
+            #lb-next {
+                right: 10px;
+            }
+
+            /* bottom filename */
+            #lb-name {
+                text-align: center;
+                padding: 10px 16px;
+                font-size: 11px;
+                color: rgba(255, 255, 255, 0.4);
+                flex-shrink: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            ::-webkit-scrollbar {
+                width: 5px;
+            }
+            ::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            ::-webkit-scrollbar-thumb {
+                background: var(--scroll-thumb);
+                border-radius: 3px;
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Upload Screen -->
+        <div id="upload-screen">
+            <h1>Chat Viewer</h1>
+            <p>
+                Pilih atau seret file <code>.zip</code> export WhatsApp kamu
+                langsung — tidak perlu diekstrak.
+            </p>
+            <div
+                class="drop-zone"
+                id="drop-zone"
+                onclick="document.getElementById('fi').click()"
+            >
+                <div class="dz-icon">📦</div>
+                <div class="dz-label">Pilih file ZIP</div>
+                <div class="dz-sub">Export WhatsApp (.zip)</div>
+                <div class="dz-alt">atau seret & lepas ke sini</div>
+                <input type="file" id="fi" accept=".zip" />
+            </div>
+            <div id="progress-wrap">
+                <div id="progress-label">Membaca ZIP…</div>
+                <div id="progress-bar-bg"><div id="progress-bar"></div></div>
+            </div>
+        </div>
+
+        <!-- Header -->
+        <div id="header">
+            <div class="header-top">
+                <span class="dot l"></span>
+                <span class="dot g" style="margin-left: 3px"></span>
+                <span id="hnames"></span>
+                <span id="hcount" style="margin-left: 6px"></span>
+                <div class="hright">
+                    <button
+                        class="icon-btn"
+                        title="Cari teks"
+                        onclick="toggleSearch()"
+                    >
+                        🔍
+                    </button>
+                    <button
+                        class="icon-btn"
+                        title="Loncat ke tanggal"
+                        onclick="toggleDateBar()"
+                    >
+                        📅
+                    </button>
+                    <button
+                        class="icon-btn"
+                        id="btn-theme"
+                        title="Ganti tema"
+                        onclick="toggleTheme()"
+                    >
+                        🌙
+                    </button>
+                </div>
+            </div>
+            <div id="search-bar">
+                <input
+                    type="text"
+                    id="search-input"
+                    placeholder="Cari pesan…"
+                    oninput="doSearch()"
+                    onkeydown="searchKey(event)"
+                />
+                <div class="srch-nav">
+                    <span id="srch-count">—</span>
+                    <button
+                        class="srch-btn"
+                        id="srch-prev"
+                        onclick="jumpSearch(-1)"
+                        disabled
+                    >
+                        ↑
+                    </button>
+                    <button
+                        class="srch-btn"
+                        id="srch-next"
+                        onclick="jumpSearch(1)"
+                        disabled
+                    >
+                        ↓
+                    </button>
+                </div>
+                <button
+                    class="icon-btn"
+                    onclick="closeSearch()"
+                    style="font-size: 14px"
+                >
+                    ✕
+                </button>
+            </div>
+            <div id="date-bar">
+                <label>Loncat ke:</label>
+                <select id="date-select"></select>
+                <button class="date-go-btn" onclick="jumpToDate()">
+                    Pergi
+                </button>
+                <button
+                    class="icon-btn"
+                    onclick="toggleDateBar()"
+                    style="font-size: 14px"
+                >
+                    ✕
+                </button>
+            </div>
+        </div>
+
+        <!-- Sticky date pill (lives outside header so it scrolls with page but sticks) -->
+        <div id="sticky-date"><span id="sticky-date-text"></span></div>
+
+        <!-- Chat -->
+        <div id="chat"></div>
+
+        <!-- Lightbox -->
+        <div id="lb">
+            <div id="lb-top">
+                <span id="lb-counter"></span>
+                <button id="lb-close-btn" onclick="closeLb()">✕</button>
+            </div>
+            <div id="lb-body">
+                <button class="lb-nav" id="lb-prev" onclick="lbNav(-1)">
+                    ‹
+                </button>
+                <img id="lb-img" src="" alt="" />
+                <button class="lb-nav" id="lb-next" onclick="lbNav(1)">
+                    ›
+                </button>
+            </div>
+            <div id="lb-name"></div>
+        </div>
+
+        <script>
+            // ── STATE ──
+            const FM = {}
+            let searchMatches = [],
+                searchIdx = -1,
+                isDark = false
+
+            // lightbox state
+            let lbImages = [] // [{src, name, el}]  — all img elements in order
+            let lbIdx = 0
+            let lbOriginEl = null // the <img> that was clicked
+
+            // ── DROP ZONE ──
+            const dropZone = document.getElementById('drop-zone')
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault()
+                dropZone.classList.add('drag-over')
+            })
+            dropZone.addEventListener('dragleave', () =>
+                dropZone.classList.remove('drag-over')
+            )
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault()
+                dropZone.classList.remove('drag-over')
+                const file = e.dataTransfer.files[0]
+                if (file && file.name.endsWith('.zip')) loadZip(file)
+                else alert('Harap seret file .zip dari export WhatsApp.')
+            })
+            document
+                .getElementById('fi')
+                .addEventListener('change', function (e) {
+                    if (e.target.files[0]) loadZip(e.target.files[0])
+                })
+
+            // ── LOAD ZIP ──
+            async function loadZip(file) {
+                document.getElementById('drop-zone').style.display = 'none'
+                const pw = document.getElementById('progress-wrap')
+                pw.style.display = 'flex'
+                setProgress(0, 'Membuka ZIP…')
+                try {
+                    const zip = await JSZip.loadAsync(file)
+                    const entries = Object.values(zip.files).filter(
+                        (f) => !f.dir
+                    )
+                    const total = entries.length
+                    let done = 0
+
+                    const chatEntry = entries.find((f) =>
+                        f.name.endsWith('_chat.txt')
+                    )
+                    if (!chatEntry) {
+                        alert('_chat.txt tidak ditemukan di dalam ZIP ini.')
+                        return
+                    }
+
+                    for (const entry of entries) {
+                        const name = entry.name.split('/').pop()
+                        if (!name || entry.name.endsWith('_chat.txt')) {
+                            done++
+                            continue
+                        }
+                        setProgress(
+                            Math.round((done / total) * 85),
+                            `Memuat: ${name}`
+                        )
+                        try {
+                            const blob = await entry.async('blob')
+                            FM[name] = URL.createObjectURL(blob)
+                        } catch (e) {}
+                        done++
+                    }
+
+                    setProgress(90, 'Membaca chat…')
+                    const rawText = await chatEntry.async('string')
+                    setProgress(100, 'Selesai!')
+                    await sleep(300)
+
+                    document.getElementById('upload-screen').style.display =
+                        'none'
+                    document.getElementById('header').style.display = 'flex'
+                    document.getElementById('chat').style.display = 'block'
+                    document.getElementById('sticky-date').style.display =
+                        'block'
+                    render(rawText)
+                    initStickyDate()
+                } catch (err) {
+                    alert('Gagal membaca ZIP: ' + err.message)
+                    console.error(err)
+                }
+            }
+
+            function setProgress(pct, label) {
+                document.getElementById('progress-bar').style.width = pct + '%'
+                document.getElementById('progress-label').textContent = label
+            }
+            function sleep(ms) {
+                return new Promise((r) => setTimeout(r, ms))
+            }
+
+            // ── PARSE ──
+            const MSG_RE =
+                /^\[(\d{2}\/\d{2}\/\d{2}), (\d{2}\.\d{2}\.\d{2})\] ([^:]+): ([\s\S]*)/
+            const MEDIA_RE = /<terlampir: ([^>]+)>/
+
+            function parse(raw) {
+                const out = []
+                let cur = null
+                for (const rawLine of raw.split('\n')) {
+                    const line = rawLine.replace(/\u200e/g, '').trim()
+                    if (!line) continue
+                    const m = line.match(MSG_RE)
+                    if (m) {
+                        if (cur) out.push(cur)
+                        cur = {
+                            date: m[1],
+                            time: m[2],
+                            sender: m[3].trim(),
+                            text: m[4],
+                        }
+                    } else if (cur) cur.text += '\n' + line
+                }
+                if (cur) out.push(cur)
+                return out
+            }
+
+            function fmtDate(d) {
+                const [dd, mm, yy] = d.split('/')
+                const days = [
+                    'Minggu',
+                    'Senin',
+                    'Selasa',
+                    'Rabu',
+                    'Kamis',
+                    'Jumat',
+                    'Sabtu',
+                ]
+                const mons = [
+                    'Jan',
+                    'Feb',
+                    'Mar',
+                    'Apr',
+                    'Mei',
+                    'Jun',
+                    'Jul',
+                    'Agu',
+                    'Sep',
+                    'Okt',
+                    'Nov',
+                    'Des',
+                ]
+                const dt = new Date(`20${yy}-${mm}-${dd}`)
+                return `${days[dt.getDay()]}, ${parseInt(dd)} ${
+                    mons[parseInt(mm) - 1]
+                } 20${yy}`
+            }
+
+            function mtype(name) {
+                const x = (name.split('.').pop() || '').toLowerCase()
+                if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(x))
+                    return 'img'
+                if (['mp4', 'mov', 'avi', '3gp', 'mkv'].includes(x))
+                    return 'vid'
+                if (['opus', 'ogg', 'm4a', 'aac', 'mp3', 'wav'].includes(x))
+                    return 'aud'
+                return 'file'
+            }
+
+            function wave(n) {
+                return Array.from(
+                    { length: n },
+                    () =>
+                        `<span style="height:${
+                            5 + Math.random() * 13
+                        }px"></span>`
+                ).join('')
+            }
+
+            function buildMedia(fn) {
+                const t = mtype(fn),
+                    u = FM[fn] || null
+                if (!u)
+                    return `<div class="ph">${
+                        t === 'img'
+                            ? '🖼'
+                            : t === 'vid'
+                            ? '🎥'
+                            : t === 'aud'
+                            ? '🎙'
+                            : '📎'
+                    } ${fn}</div>`
+                if (t === 'img')
+                    return `<div class="media-wrap"><img src="${u}" data-name="${fn}" loading="lazy" onclick="openLb(this)"></div>`
+                if (t === 'vid')
+                    return `<div class="media-wrap"><video controls preload="metadata"><source src="${u}"></video></div>`
+                if (t === 'aud')
+                    return `<div class="voice"><audio src="${u}" preload="none"></audio><button class="play-btn" onclick="toggleAudio(this)">▶</button><div class="waveform">${wave(
+                        28
+                    )}</div></div>`
+                return `<div class="ph">📎 <a href="${u}" download="${fn}">${fn}</a></div>`
+            }
+
+            function isSys(txt) {
+                return txt.includes('terenkripsi') || txt.includes('end-to-end')
+            }
+            function esc(s) {
+                return s
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/\n/g, '<br>')
+            }
+
+            // ── RENDER ──
+            function render(raw) {
+                const msgs = parse(raw)
+                const chat = document.getElementById('chat')
+                chat.innerHTML = ''
+
+                const senders = [
+                    ...new Set(
+                        msgs.filter((m) => !isSys(m.text)).map((m) => m.sender)
+                    ),
+                ]
+                const rightSender = senders.includes('Gio')
+                    ? 'Gio'
+                    : senders[senders.length - 1]
+                const leftSender =
+                    senders.find((s) => s !== rightSender) || senders[0]
+
+                const dateSelect = document.getElementById('date-select')
+                dateSelect.innerHTML = ''
+                const seenDates = new Set()
+                let lastDate = '',
+                    count = 0
+
+                msgs.forEach((msg) => {
+                    if (msg.date !== lastDate) {
+                        const label = fmtDate(msg.date)
+                        const sepId = `date-${msg.date.replace(/\//g, '-')}`
+                        chat.insertAdjacentHTML(
+                            'beforeend',
+                            `<div class="date-sep" id="${sepId}" data-label="${label}"><span>${label}</span></div>`
+                        )
+                        if (!seenDates.has(msg.date)) {
+                            seenDates.add(msg.date)
+                            const opt = document.createElement('option')
+                            opt.value = sepId
+                            opt.textContent = label
+                            dateSelect.appendChild(opt)
+                        }
+                        lastDate = msg.date
+                    }
+
+                    if (isSys(msg.text)) {
+                        chat.insertAdjacentHTML(
+                            'beforeend',
+                            `<div class="system">${esc(
+                                msg.text.replace(/\u200e/g, '').trim()
+                            )}</div>`
+                        )
+                        return
+                    }
+
+                    count++
+                    const side = msg.sender === rightSender ? 'right' : 'left'
+                    const mediaM = msg.text.match(MEDIA_RE)
+                    const textPart = msg.text
+                        .replace(MEDIA_RE, '')
+                        .replace(/\u200e/g, '')
+                        .trim()
+                    const ts = msg.time.slice(0, 5).replace(/\./g, ':')
+
+                    let inner = ''
+                    if (mediaM) inner += buildMedia(mediaM[1])
+                    if (textPart)
+                        inner += `<span class="msg-text">${esc(
+                            textPart
+                        )}</span>`
+                    inner += `<span class="ts">${ts}</span>`
+
+                    chat.insertAdjacentHTML(
+                        'beforeend',
+                        `<div class="row ${side}"><div class="bubble">${inner}</div></div>`
+                    )
+                })
+
+                document.getElementById(
+                    'hnames'
+                ).textContent = `${leftSender} & ${rightSender}`
+                document.getElementById('hcount').textContent = `${count} pesan`
+
+                // build lightbox image list after render
+                buildLbList()
+            }
+
+            // ── STICKY DATE ──
+            function initStickyDate() {
+                const stickyEl = document.getElementById('sticky-date')
+                const textEl = document.getElementById('sticky-date-text')
+                const header = document.getElementById('header')
+
+                // position sticky-date just below header
+                function updateStickyTop() {
+                    stickyEl.style.top = header.offsetHeight + 'px'
+                }
+                updateStickyTop()
+                new ResizeObserver(updateStickyTop).observe(header)
+
+                const dateSeps = document.querySelectorAll('.date-sep')
+
+                function onScroll() {
+                    const headerBottom = header.getBoundingClientRect().bottom
+                    let currentLabel = ''
+                    for (const sep of dateSeps) {
+                        const rect = sep.getBoundingClientRect()
+                        // if the separator has passed the sticky zone, it's our current date
+                        if (rect.top <= headerBottom + 40) {
+                            currentLabel = sep.dataset.label
+                        }
+                    }
+                    if (currentLabel && currentLabel !== textEl.textContent) {
+                        textEl.textContent = currentLabel
+                    }
+                }
+
+                window.addEventListener('scroll', onScroll, { passive: true })
+                onScroll()
+            }
+
+            // ── LIGHTBOX ──
+            function buildLbList() {
+                lbImages = Array.from(
+                    document.querySelectorAll('.media-wrap img')
+                ).map((img) => ({
+                    src: img.src,
+                    name: img.dataset.name || '',
+                    el: img,
+                }))
+            }
+
+            function openLb(imgEl) {
+                lbOriginEl = imgEl
+                lbIdx = lbImages.findIndex((x) => x.el === imgEl)
+                if (lbIdx < 0) lbIdx = 0
+                document.getElementById('lb').classList.add('on')
+                document.body.style.overflow = 'hidden'
+                lbShow(lbIdx, false)
+            }
+
+            function lbShow(idx, animate) {
+                const lb = lbImages[idx]
+                if (!lb) return
+                const img = document.getElementById('lb-img')
+
+                if (animate) {
+                    img.classList.add('fade')
+                    setTimeout(() => {
+                        img.src = lb.src
+                        img.onload = () => img.classList.remove('fade')
+                        img.onerror = () => img.classList.remove('fade')
+                    }, 160)
+                } else {
+                    img.src = lb.src
+                }
+
+                document.getElementById('lb-name').textContent = lb.name
+                document.getElementById('lb-counter').textContent = `${
+                    idx + 1
+                } / ${lbImages.length}`
+                document.getElementById('lb-prev').disabled = idx === 0
+                document.getElementById('lb-next').disabled =
+                    idx === lbImages.length - 1
+                lbIdx = idx
+            }
+
+            function lbNav(dir) {
+                const next = lbIdx + dir
+                if (next < 0 || next >= lbImages.length) return
+                lbShow(next, true)
+            }
+
+            function closeLb() {
+                document.getElementById('lb').classList.remove('on')
+                document.getElementById('lb-img').src = ''
+                document.body.style.overflow = ''
+
+                // scroll back so the origin image is visible
+                const origin = lbImages[lbIdx]?.el || lbOriginEl
+                if (origin) {
+                    origin.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center',
+                    })
+                }
+            }
+
+            // keyboard nav in lightbox
+            document.addEventListener('keydown', (e) => {
+                const lbOpen = document
+                    .getElementById('lb')
+                    .classList.contains('on')
+                if (lbOpen) {
+                    if (e.key === 'ArrowLeft') lbNav(-1)
+                    if (e.key === 'ArrowRight') lbNav(1)
+                    if (e.key === 'Escape') closeLb()
+                    return
+                }
+                if (e.key === 'Escape') closeSearch()
+            })
+
+            // click outside image to close
+            document.getElementById('lb').addEventListener('click', (e) => {
+                if (e.target === e.currentTarget || e.target.id === 'lb-body')
+                    closeLb()
+            })
+
+            // ── THEME ──
+            function toggleTheme() {
+                isDark = !isDark
+                document.documentElement.setAttribute(
+                    'data-theme',
+                    isDark ? 'dark' : 'light'
+                )
+                document.getElementById('btn-theme').textContent = isDark
+                    ? '☀️'
+                    : '🌙'
+            }
+
+            // ── SEARCH ──
+            function toggleSearch() {
+                const bar = document.getElementById('search-bar')
+                const open = bar.style.display === 'flex'
+                document.getElementById('date-bar').style.display = 'none'
+                bar.style.display = open ? 'none' : 'flex'
+                if (!open) {
+                    document.getElementById('search-input').focus()
+                    doSearch()
+                } else clearSearch()
+            }
+
+            function closeSearch() {
+                document.getElementById('search-bar').style.display = 'none'
+                clearSearch()
+            }
+
+            function clearSearch() {
+                document
+                    .querySelectorAll('mark')
+                    .forEach((m) =>
+                        m.replaceWith(document.createTextNode(m.textContent))
+                    )
+                document
+                    .querySelectorAll('.msg-text')
+                    .forEach((el) => el.normalize())
+                searchMatches = []
+                searchIdx = -1
+                updateSearchUI()
+            }
+
+            function doSearch() {
+                const q = document.getElementById('search-input').value.trim()
+                clearSearch()
+                if (!q) return
+
+                const re = new RegExp(escapeRe(q), 'gi')
+                const textNodes = []
+                document
+                    .querySelectorAll('.msg-text')
+                    .forEach((el) => walkText(el, textNodes))
+
+                textNodes.forEach((node) => {
+                    const val = node.nodeValue
+                    if (!re.test(val)) return
+                    re.lastIndex = 0
+                    const frag = document.createDocumentFragment()
+                    let last = 0,
+                        m
+                    while ((m = re.exec(val)) !== null) {
+                        if (m.index > last)
+                            frag.appendChild(
+                                document.createTextNode(
+                                    val.slice(last, m.index)
+                                )
+                            )
+                        const mark = document.createElement('mark')
+                        mark.textContent = m[0]
+                        frag.appendChild(mark)
+                        last = m.index + m[0].length
+                    }
+                    if (last < val.length)
+                        frag.appendChild(
+                            document.createTextNode(val.slice(last))
+                        )
+                    node.parentNode.replaceChild(frag, node)
+                })
+
+                searchMatches = Array.from(document.querySelectorAll('mark'))
+                searchIdx = searchMatches.length > 0 ? 0 : -1
+                updateSearchUI()
+                if (searchIdx >= 0) activateMark(searchIdx)
+            }
+
+            function walkText(node, arr) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    if (node.nodeValue.trim()) arr.push(node)
+                } else node.childNodes.forEach((c) => walkText(c, arr))
+            }
+
+            function escapeRe(s) {
+                return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            }
+
+            function jumpSearch(dir) {
+                if (!searchMatches.length) return
+                searchMatches[searchIdx]?.classList.remove('active')
+                searchIdx =
+                    (searchIdx + dir + searchMatches.length) %
+                    searchMatches.length
+                activateMark(searchIdx)
+                updateSearchUI()
+            }
+
+            function activateMark(i) {
+                const m = searchMatches[i]
+                if (!m) return
+                m.classList.add('active')
+                m.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            }
+
+            function updateSearchUI() {
+                const count = searchMatches.length
+                const el = document.getElementById('srch-count')
+                const prev = document.getElementById('srch-prev')
+                const next = document.getElementById('srch-next')
+                if (!count) {
+                    el.textContent = document
+                        .getElementById('search-input')
+                        .value.trim()
+                        ? '0 hasil'
+                        : '—'
+                    prev.disabled = next.disabled = true
+                } else {
+                    el.textContent = `${searchIdx + 1}/${count}`
+                    prev.disabled = next.disabled = false
+                }
+            }
+
+            function searchKey(e) {
+                if (e.key === 'Enter') {
+                    e.shiftKey ? jumpSearch(-1) : jumpSearch(1)
+                }
+                if (e.key === 'Escape') closeSearch()
+            }
+
+            // ── DATE JUMP ──
+            function toggleDateBar() {
+                const bar = document.getElementById('date-bar')
+                const open = bar.style.display === 'flex'
+                document.getElementById('search-bar').style.display = 'none'
+                if (open) clearSearch()
+                bar.style.display = open ? 'none' : 'flex'
+            }
+
+            function jumpToDate() {
+                const id = document.getElementById('date-select').value
+                const el = document.getElementById(id)
+                if (el)
+                    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+
+            // ── AUDIO ──
+            function toggleAudio(btn) {
+                const v = btn.closest('.voice'),
+                    a = v.querySelector('audio')
+                if (a.paused) {
+                    document.querySelectorAll('.voice audio').forEach((x) => {
+                        if (x !== a) {
+                            x.pause()
+                            x.currentTime = 0
+                            x.closest('.voice').classList.remove('playing')
+                            x
+                                .closest('.voice')
+                                .querySelector('.play-btn').textContent = '▶'
+                        }
+                    })
+                    a.play()
+                    btn.textContent = '⏸'
+                    v.classList.add('playing')
+                    a.onended = () => {
+                        btn.textContent = '▶'
+                        v.classList.remove('playing')
+                    }
+                } else {
+                    a.pause()
+                    btn.textContent = '▶'
+                    v.classList.remove('playing')
+                }
+            }
+        </script>
+    </body>
+</html>
